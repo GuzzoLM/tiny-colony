@@ -1,239 +1,25 @@
+mod config;
+mod pawn;
+mod sim;
+mod world;
+
 use bevy::prelude::*;
-use bevy::asset::RenderAssetUsages;
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-
-const MAP_W: i32 = 64;
-const MAP_H: i32 = 64;
-const TILE_SIZE: f32 = 12.0;
-const TILE_GAP: f32 = 1.0;
-
-const STOCKPILE_X: i32 = MAP_W / 2;
-const STOCKPILE_Y: i32 = MAP_H / 2;
-
-const PAWN_COUNT: usize = 10;
-const PAWN_RADIUS_PX: u32 = 12;
 
 fn main() {
     App::new()
-    .add_plugins(DefaultPlugins)
-    .add_systems(Startup, setup)
-    .add_systems(Update, (sim_controls, move_pawn_0))
-    .run();
-}
-
-#[derive(Clone, Copy, Debug)]
-enum Tile {
-    Ground,
-    Tree,
-    Stockpile,
-}
-
-#[derive(Component)]
-struct Pawn {
-    id: u32,
-    x: i32,
-    y: i32,
-}
-
-#[derive(Resource)]
-struct Sim {
-    paused: bool,
-    speed: f32,
-    tick: Timer,
-    target: IVec2,
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (sim::sim_controls, sim::move_pawn_0))
+        .run();
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn(Camera2d);
 
-    let mut tiles = vec![Tile::Ground; (MAP_W * MAP_H) as usize];
+    // World (data + tiles rendered)
+    let tiles = world::build_world();
+    world::spawn_world_tiles(&mut commands, &tiles);
 
-    for y in 10..18 {
-        for x in 10..18 {
-            set_tile(&mut tiles, x, y, Tile::Tree);
-        }
-    }
-
-    set_tile(&mut tiles, STOCKPILE_X, STOCKPILE_Y, Tile::Stockpile);
-
-    for y in 0..MAP_H {
-        for x in 0..MAP_W {
-            let tile = get_tile(&tiles, x, y);
-
-            let color = match tile {
-                Tile::Ground => Color::srgb(0.15, 0.15, 0.15),
-                Tile::Tree => Color::srgb(0.10, 0.35, 0.12),
-                Tile::Stockpile => Color::srgb(0.55, 0.42, 0.15),
-            };
-
-            let world_pos = grid_to_world(x, y);
-
-            commands.spawn((
-                Sprite {
-                    color,
-                    custom_size: Some(Vec2::splat(TILE_SIZE - TILE_GAP)),
-                    ..default()
-                },
-                Transform::from_translation(world_pos),
-            ));
-        }
-    }
-
-    let circle_image = images.add(make_circle_image(PAWN_RADIUS_PX));
-
-    let spawn_offsets: [(i32, i32); PAWN_COUNT] = [
-        (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1),
-        (-1, 1), (1, -1), (-1, -1), (2, 0), (-2, 0)
-    ];
-
-    for (i, (dx, dy)) in spawn_offsets.into_iter().enumerate() {
-        let x = STOCKPILE_X + dx;
-        let y = STOCKPILE_Y + dy;
-
-        let pos = grid_to_world(x, y);
-        let transform = Transform::from_translation(pos + Vec3::new(0.0, 0.0, 1.0));
-
-        commands.spawn((
-            Pawn { id: i as u32, x, y },
-            Sprite {
-                image: circle_image.clone(),
-                color: Color::srgb(0.85, 0.85, 0.95),
-                custom_size: Some(Vec2::splat(TILE_SIZE - 2.0)),
-                ..default()
-            },
-            transform,
-        ));
-    }
-
-    commands.insert_resource(Sim {
-        paused: false,
-        speed: 1.0,
-        tick: Timer::from_seconds(0.10, TimerMode::Repeating),
-        target: IVec2::new(12, 12),
-    });
+    // Pawns
+    pawn::spawn_pawns(&mut commands, &mut images);
 }
-
-
-fn grid_to_world(x: i32, y: i32) -> Vec3 {
-    let origin_x = -(MAP_W as f32) * TILE_SIZE * 0.5 + TILE_SIZE * 0.5;
-    let origin_y = -(MAP_H as f32) * TILE_SIZE * 0.5 + TILE_SIZE * 0.5;
-
-    Vec3::new(
-        origin_x + x as f32 * TILE_SIZE,
-        origin_y + y as f32 * TILE_SIZE,
-        0.0,
-    )
-}
-
-fn idx(x: i32, y: i32) -> usize {
-    (y * MAP_W + x) as usize
-}
-
-fn set_tile(tiles: &mut [Tile], x: i32, y: i32, tile: Tile) {
-    tiles[idx(x, y)] = tile;
-}
-
-fn get_tile(tiles: &[Tile], x: i32, y: i32) -> Tile {
-    tiles[idx(x, y)]
-}
-
-fn make_circle_image(radius: u32) -> Image {
-    let size = radius * 2 + 2; // small padding
-    let w = size as usize;
-    let h = size as usize;
-
-    let mut data = vec![0u8; w * h * 4];
-
-    let cx = (size as f32) / 2.0;
-    let cy = (size as f32) / 2.0;
-    let r = radius as f32;
-
-    for y in 0..h {
-        for x in 0..w {
-            let fx = x as f32 + 0.5;
-            let fy = y as f32 + 0.5;
-
-            let dx = fx - cx;
-            let dy = fy - cy;
-            let dist = (dx * dx + dy * dy).sqrt();
-
-            let inside = dist <= r;
-
-            let idx = (y * w + x) * 4;
-            data[idx + 0] = 255; // white (we tint with Sprite.color)
-            data[idx + 1] = 255;
-            data[idx + 2] = 255;
-            data[idx + 3] = if inside { 255 } else { 0 }; // alpha mask
-        }
-    }
-
-    Image::new(
-        Extent3d {
-            width: size,
-            height: size,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8UnormSrgb,
-    RenderAssetUsages::default(),
-    )
-}
-
-fn sim_controls(keys: Res<ButtonInput<KeyCode>>, mut sim: ResMut<Sim>) {
-    if keys.just_pressed(KeyCode::Space) {
-        sim.paused = !sim.paused;
-    }
-
-    if keys.just_pressed(KeyCode::Digit1) {
-        sim.speed = 1.0;
-    } else if keys.just_pressed(KeyCode::Digit2) {
-        sim.speed = 2.0;
-    } else if keys.just_pressed(KeyCode::Digit3) {
-        sim.speed = 4.0;
-    }
-}
-
-fn move_pawn_0(time: Res<Time>, mut sim: ResMut<Sim>, mut q: Query<(&mut Pawn, &mut Transform)>) {
-    if sim.paused {
-        return;
-    }
-
-    let speed = sim.speed;
-    sim.tick.tick(time.delta().mul_f32(speed));
-    if !sim.tick.just_finished() {
-        return;
-    }
-
-    for (mut pawn, mut transform) in &mut q {
-        if pawn.id != 0 {
-            continue;
-        }
-
-        let px = pawn.x;
-        let py = pawn.y;
-
-        let tx = sim.target.x;
-        let ty = sim.target.y;
-
-        if px == tx && py == ty {
-            break;
-        }
-
-        if px < tx {
-            pawn.x += 1;
-        } else if px > tx {
-            pawn.x -= 1;
-        } else if py < ty {
-            pawn.y += 1;
-        } else if py > ty {
-            pawn.y -= 1;
-        }
-
-        let pos = grid_to_world(pawn.x, pawn.y);
-        transform.translation = pos + Vec3::new(0.0, 0.0, 1.0);
-
-        break;
-    }
-}
-
