@@ -17,6 +17,7 @@ fn main() {
     App::new()
     .add_plugins(DefaultPlugins)
     .add_systems(Startup, setup)
+    .add_systems(Update, (sim_controls, move_pawn_0))
     .run();
 }
 
@@ -32,6 +33,14 @@ struct Pawn {
     id: u32,
     x: i32,
     y: i32,
+}
+
+#[derive(Resource)]
+struct Sim {
+    paused: bool,
+    speed: f32,
+    tick: Timer,
+    target: IVec2,
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
@@ -95,6 +104,13 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             transform,
         ));
     }
+
+    commands.insert_resource(Sim {
+        paused: false,
+        speed: 1.0,
+        tick: Timer::from_seconds(0.10, TimerMode::Repeating),
+        target: IVec2::new(12, 12),
+    });
 }
 
 
@@ -163,3 +179,61 @@ fn make_circle_image(radius: u32) -> Image {
     RenderAssetUsages::default(),
     )
 }
+
+fn sim_controls(keys: Res<ButtonInput<KeyCode>>, mut sim: ResMut<Sim>) {
+    if keys.just_pressed(KeyCode::Space) {
+        sim.paused = !sim.paused;
+    }
+
+    if keys.just_pressed(KeyCode::Digit1) {
+        sim.speed = 1.0;
+    } else if keys.just_pressed(KeyCode::Digit2) {
+        sim.speed = 2.0;
+    } else if keys.just_pressed(KeyCode::Digit3) {
+        sim.speed = 4.0;
+    }
+}
+
+fn move_pawn_0(time: Res<Time>, mut sim: ResMut<Sim>, mut q: Query<(&mut Pawn, &mut Transform)>) {
+    if sim.paused {
+        return;
+    }
+
+    let speed = sim.speed;
+    sim.tick.tick(time.delta().mul_f32(speed));
+    if !sim.tick.just_finished() {
+        return;
+    }
+
+    for (mut pawn, mut transform) in &mut q {
+        if pawn.id != 0 {
+            continue;
+        }
+
+        let px = pawn.x;
+        let py = pawn.y;
+
+        let tx = sim.target.x;
+        let ty = sim.target.y;
+
+        if px == tx && py == ty {
+            break;
+        }
+
+        if px < tx {
+            pawn.x += 1;
+        } else if px > tx {
+            pawn.x -= 1;
+        } else if py < ty {
+            pawn.y += 1;
+        } else if py > ty {
+            pawn.y -= 1;
+        }
+
+        let pos = grid_to_world(pawn.x, pawn.y);
+        transform.translation = pos + Vec3::new(0.0, 0.0, 1.0);
+
+        break;
+    }
+}
+
