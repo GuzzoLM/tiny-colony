@@ -2,31 +2,37 @@ use bevy::prelude::*;
 
 use crate::config::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tile {
     Ground,
     Tree,
     Stockpile,
 }
 
-pub fn build_world() -> Vec<Tile> {
-    let mut tiles = vec![Tile::Ground; (MAP_W * MAP_H) as usize];
+#[derive(Resource)]
+pub struct WorldMap {
+    pub tiles: Vec<Tile>,
+}
+
+pub fn build_world() -> WorldMap {
+    let tiles = vec![Tile::Ground; (MAP_W * MAP_H) as usize];
+    let mut world = WorldMap { tiles };
 
     for y in 10..18 {
         for x in 10..18 {
-            set_tile(&mut tiles, x, y, Tile::Tree);
+            set(&mut world, x, y, Tile::Tree);
         }
     }
 
-    set_tile(&mut tiles, STOCKPILE_X, STOCKPILE_Y, Tile::Stockpile);
+    set(&mut world, STOCKPILE_X, STOCKPILE_Y, Tile::Stockpile);
 
-    tiles
+    world
 }
 
-pub fn spawn_world_tiles(commands: &mut Commands, tiles: &[Tile]) {
+pub fn spawn_world_tiles(commands: &mut Commands, world: &WorldMap) {
     for y in 0..MAP_H {
         for x in 0..MAP_W {
-            let tile = get_tile(tiles, x, y);
+            let tile = get(world, x, y);
 
             let color = match tile {
                 Tile::Ground => Color::srgb(0.15, 0.15, 0.15),
@@ -63,10 +69,14 @@ fn idx(x: i32, y: i32) -> usize {
     (y * MAP_W + x) as usize
 }
 
-fn set_tile(tiles: &mut [Tile], x: i32, y: i32, tile: Tile) {
-    tiles[idx(x, y)] = tile;
+pub fn in_bounds(x: i32, y: i32) -> bool {
+    x >= 0 && x < MAP_W && y >= 0 && y < MAP_H
 }
 
-fn get_tile(tiles: &[Tile], x: i32, y: i32) -> Tile {
-    tiles[idx(x, y)]
+pub fn get(map: &WorldMap, x: i32, y: i32) -> Tile {
+    map.tiles[idx(x, y)]
+}
+
+pub fn set(map: &mut WorldMap, x: i32, y: i32, tile: Tile) {
+    map.tiles[idx(x, y)] = tile;
 }

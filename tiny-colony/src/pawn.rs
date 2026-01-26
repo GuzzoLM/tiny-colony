@@ -12,6 +12,20 @@ pub struct Pawn {
     pub y: i32,
 }
 
+#[derive(Component, Debug, Clone, Copy)]
+pub enum Task {
+    Idle,
+    GoToTree(IVec2),
+    Chop { at: IVec2, progress: u8 },
+    GoToStockpile,
+    DropOff,
+}
+
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct Inventory {
+    pub wood: u32,
+}
+
 pub fn spawn_pawns(commands: &mut Commands, images: &mut ResMut<Assets<Image>>) {
     let circle_image = images.add(make_circle_image(PAWN_RADIUS_PX));
 
@@ -37,7 +51,9 @@ pub fn spawn_pawns(commands: &mut Commands, images: &mut ResMut<Assets<Image>>) 
                 ..default()
             },
             transform,
-        ));
+        ))
+        .insert(Task::Idle)
+        .insert(Inventory::default());
     }
 
     crate::sim::init(commands);
