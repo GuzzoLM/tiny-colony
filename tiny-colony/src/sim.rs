@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::colony::Colony;
 use crate::pawn_tasks;
 use crate::pawn::{Inventory, Pawn, Task};
-use crate::world::WorldMap;
+use crate::world::{self, WorldMap};
 
 #[derive(Resource)]
 pub struct Sim {
@@ -44,6 +44,8 @@ pub fn tick_jobs(
     mut map: ResMut<WorldMap>,
     mut stockpile: ResMut<Colony>,
     mut q: Query<(&mut Pawn, &mut Transform, &mut Task, &mut Inventory)>,
+    tile_entities: Res<world::TileEntities>,
+    mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
 ) {
     if sim.paused {
         return;
@@ -63,7 +65,7 @@ pub fn tick_jobs(
         let next = match *task {
             Task::Idle => pawn_tasks::handle_idle(&pawn, &map),
             Task::GoToTree(target) => pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, target),
-            Task::Chop { at, progress } => pawn_tasks::handle_chop(&mut map, &mut inv, at, progress),
+            Task::Chop { at, progress } => pawn_tasks::handle_chop(&mut map, &mut inv, at, progress, tile_entities, q_tiles),
             Task::GoToStockpile => pawn_tasks::handle_go_to_stockpile(&mut pawn, &mut transform),
             Task::DropOff => pawn_tasks::handle_drop_off(&mut inv, &mut stockpile),
         };

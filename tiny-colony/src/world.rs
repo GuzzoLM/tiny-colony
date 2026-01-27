@@ -9,6 +9,14 @@ pub enum Tile {
     Stockpile,
 }
 
+#[derive(Component)]
+pub struct TileSprite;
+
+#[derive(Resource)]
+pub struct TileEntities {
+    pub entities: Vec<Entity>,
+}
+
 #[derive(Resource)]
 pub struct WorldMap {
     pub tiles: Vec<Tile>,
@@ -30,28 +38,32 @@ pub fn build_world() -> WorldMap {
 }
 
 pub fn spawn_world_tiles(commands: &mut Commands, world: &WorldMap) {
+    let mut tile_entities = Vec::with_capacity((MAP_W * MAP_H) as usize);
+
     for y in 0..MAP_H {
         for x in 0..MAP_W {
             let tile = get(world, x, y);
 
-            let color = match tile {
-                Tile::Ground => Color::srgb(0.15, 0.15, 0.15),
-                Tile::Tree => Color::srgb(0.10, 0.35, 0.12),
-                Tile::Stockpile => Color::srgb(0.55, 0.42, 0.15),
-            };
+            let color = tile_color(tile);
 
             let world_pos = grid_to_world(x, y);
 
-            commands.spawn((
+            let tile_entity = commands.spawn((
                 Sprite {
                     color,
                     custom_size: Some(Vec2::splat(TILE_SIZE - TILE_GAP)),
                     ..default()
                 },
                 Transform::from_translation(world_pos),
-            ));
+                TileSprite,
+            ))
+            .id();
+
+            tile_entities.push(tile_entity);
         }
     }
+
+    commands.insert_resource(TileEntities { entities: tile_entities });
 }
 
 pub fn grid_to_world(x: i32, y: i32) -> Vec3 {
@@ -79,4 +91,16 @@ pub fn get(map: &WorldMap, x: i32, y: i32) -> Tile {
 
 pub fn set(map: &mut WorldMap, x: i32, y: i32, tile: Tile) {
     map.tiles[idx(x, y)] = tile;
+}
+
+pub fn tile_entity(tiles: &TileEntities, x: i32, y: i32) -> Entity {
+    tiles.entities[idx(x, y)]
+}
+
+pub fn tile_color(tile: Tile) -> Color {
+    match tile {
+        Tile::Ground => Color::srgb(0.15, 0.15, 0.15),
+        Tile::Tree => Color::srgb(0.10, 0.35, 0.12),
+        Tile::Stockpile => Color::srgb(0.55, 0.42, 0.15),
+    }
 }
