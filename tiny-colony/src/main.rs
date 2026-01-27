@@ -16,7 +16,7 @@ fn main() {
             sim::sim_controls,
             sim::tick_jobs,
             ui::update_wood_ui,
-            ui::update_pawn0_ui))
+            ui::update_pawn_ui))
         .run();
 }
 
