@@ -48,22 +48,25 @@ pub fn spawn_world_tiles(commands: &mut Commands, world: &WorldMap) {
 
             let world_pos = grid_to_world(x, y);
 
-            let tile_entity = commands.spawn((
-                Sprite {
-                    color,
-                    custom_size: Some(Vec2::splat(TILE_SIZE - TILE_GAP)),
-                    ..default()
-                },
-                Transform::from_translation(world_pos),
-                TileSprite,
-            ))
-            .id();
+            let tile_entity = commands
+                .spawn((
+                    Sprite {
+                        color,
+                        custom_size: Some(Vec2::splat(TILE_SIZE - TILE_GAP)),
+                        ..default()
+                    },
+                    Transform::from_translation(world_pos),
+                    TileSprite,
+                ))
+                .id();
 
             tile_entities.push(tile_entity);
         }
     }
 
-    commands.insert_resource(TileEntities { entities: tile_entities });
+    commands.insert_resource(TileEntities {
+        entities: tile_entities,
+    });
 }
 
 pub fn grid_to_world(x: i32, y: i32) -> Vec3 {
@@ -81,16 +84,27 @@ fn idx(x: i32, y: i32) -> usize {
     (y * MAP_W + x) as usize
 }
 
-pub fn in_bounds(x: i32, y: i32) -> bool {
-    x >= 0 && x < MAP_W && y >= 0 && y < MAP_H
-}
-
 pub fn get(map: &WorldMap, x: i32, y: i32) -> Tile {
     map.tiles[idx(x, y)]
 }
 
 pub fn set(map: &mut WorldMap, x: i32, y: i32, tile: Tile) {
     map.tiles[idx(x, y)] = tile;
+}
+
+pub fn set_with_sprite(
+    map: &mut WorldMap,
+    tiles: &TileEntities,
+    q_tiles: &mut Query<&mut Sprite, With<TileSprite>>,
+    x: i32,
+    y: i32,
+    tile: Tile,
+) {
+    set(map, x, y, tile);
+    let e = tile_entity(tiles, x, y);
+    if let Ok(mut sprite) = q_tiles.get_mut(e) {
+        sprite.color = tile_color(tile);
+    }
 }
 
 pub fn tile_entity(tiles: &TileEntities, x: i32, y: i32) -> Entity {

@@ -32,31 +32,32 @@ pub fn spawn_colony_ui(commands: &mut Commands) {
         },
     ));
 
-    commands.spawn((
-        Text::new("Wood: "),
-        TextFont {
-            font_size: 20.0,
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(32.0),
-            left: Val::Px(16.0),
-            ..default()
-        },
-    ))
-    .with_children(|parent| {
-        parent.spawn((
-            TextSpan::new("0"),
+    commands
+        .spawn((
+            Text::new("Wood: "),
             TextFont {
                 font_size: 20.0,
                 ..default()
             },
-            TextColor(Color::srgb(0.9, 0.8, 0.6)),
-            UiTextTag::WoodValue,
-        ));
-    });
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(32.0),
+                left: Val::Px(16.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextSpan::new("0"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.8, 0.6)),
+                UiTextTag::WoodValue,
+            ));
+        });
 }
 
 pub fn spawn_pawn_ui(commands: &mut Commands) {
@@ -90,89 +91,89 @@ pub fn spawn_pawn_ui(commands: &mut Commands) {
         },
     ));
 
-    commands.spawn((
-        Text::new("ID:"),
-        TextFont {
-            font_size: 18.0,
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(128.0),
-            left: Val::Px(16.0),
-            ..default()
-        },
-    ))
-    .with_children(|parent| {
-        parent.spawn((
-            TextSpan::new("?"),
+    commands
+        .spawn((
+            Text::new("ID:"),
             TextFont {
                 font_size: 18.0,
                 ..default()
             },
-            TextColor(Color::srgb(0.7, 0.85, 1.0)),
-            UiTextTag::PawnId,
-        ));
-    });
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(128.0),
+                left: Val::Px(16.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextSpan::new("?"),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.85, 1.0)),
+                UiTextTag::PawnId,
+            ));
+        });
 
-    commands.spawn((
-        Text::new("Position: "),
-        TextFont {
-            font_size: 18.0,
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(152.0),
-            left: Val::Px(16.0),
-            ..default()
-        },
-    ))
-    .with_children(|parent| {
-        parent.spawn((
-            TextSpan::new("(0,0)"),
+    commands
+        .spawn((
+            Text::new("Position: "),
             TextFont {
                 font_size: 18.0,
                 ..default()
             },
-            TextColor(Color::srgb(0.7, 0.85, 1.0)),
-            UiTextTag::PawnPosition,
-        ));
-    });
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(152.0),
+                left: Val::Px(16.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextSpan::new("(0,0)"),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.85, 1.0)),
+                UiTextTag::PawnPosition,
+            ));
+        });
 
-    commands.spawn((
-        Text::new("Action: "),
-        TextFont {
-            font_size: 18.0,
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(176.0),
-            left: Val::Px(16.0),
-            ..default()
-        },
-    ))
-    .with_children(|parent| {
-        parent.spawn((
-            TextSpan::new("Idle"),
+    commands
+        .spawn((
+            Text::new("Action: "),
             TextFont {
                 font_size: 18.0,
                 ..default()
             },
-            TextColor(Color::srgb(0.7, 0.85, 1.0)),
-            UiTextTag::PawnAction,
-        ));
-    });
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(176.0),
+                left: Val::Px(16.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextSpan::new("Idle"),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.85, 1.0)),
+                UiTextTag::PawnAction,
+            ));
+        });
 }
 
-pub fn update_wood_ui(
-    colony: Res<Colony>,
-    mut q: Query<(&UiTextTag, &mut TextSpan)>,
-) {
+pub fn update_wood_ui(colony: Res<Colony>, mut q: Query<(&UiTextTag, &mut TextSpan)>) {
     if !colony.is_changed() {
         return;
     }
@@ -204,10 +205,9 @@ pub fn update_pawn_ui(
         break;
     }
 
-    let (
-        Some(action_value),
-        Some(position_value),
-        Some(id_value)) = (action_value, position_value, id_value) else {
+    let (Some(action_value), Some(position_value), Some(id_value)) =
+        (action_value, position_value, id_value)
+    else {
         return;
     };
 
@@ -225,7 +225,9 @@ fn format_task(task: &Task) -> String {
     match *task {
         Task::Idle => "Idle".to_string(),
         Task::GoToTree(at) => format!("GoToTree ({},{})", at.x, at.y),
-        Task::Chop { at, progress } => format!("Chop ({},{}) {} %", at.x, at.y, progress.saturating_mul(10)),
+        Task::Chop { at, progress } => {
+            format!("Chop ({},{}) {} %", at.x, at.y, progress.saturating_mul(10))
+        }
         Task::GoToStockpile => "GoToStockpile".to_string(),
         Task::DropOff => "DropOff".to_string(),
     }

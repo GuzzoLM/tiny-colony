@@ -12,11 +12,15 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (
-            sim::sim_controls,
-            sim::tick_jobs,
-            ui::update_wood_ui,
-            ui::update_pawn_ui))
+        .add_systems(
+            Update,
+            (
+                sim::sim_controls,
+                sim::tick_jobs,
+                ui::update_wood_ui,
+                ui::update_pawn_ui,
+            ),
+        )
         .run();
 }
 

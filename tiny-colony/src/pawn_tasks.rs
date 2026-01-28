@@ -16,7 +16,10 @@ pub fn handle_idle(pawn: &Pawn, map: &WorldMap) -> Task {
 pub fn handle_go_to_tree(pawn: &mut Pawn, transform: &mut Transform, target: IVec2) -> Task {
     let arrived = move_and_update(pawn, transform, target);
     if arrived {
-        Task::Chop { at: target, progress: 0 }
+        Task::Chop {
+            at: target,
+            progress: 0,
+        }
     } else {
         Task::GoToTree(target)
     }
@@ -25,20 +28,18 @@ pub fn handle_go_to_tree(pawn: &mut Pawn, transform: &mut Transform, target: IVe
 pub fn handle_chop(
     map: &mut WorldMap,
     inv: &mut Inventory,
-    at: IVec2, progress: u8,
+    at: IVec2,
+    progress: u8,
     tile_entities: Res<world::TileEntities>,
-    mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>) -> Task {
+    mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
+) -> Task {
     if world::get(map, at.x, at.y) != Tile::Tree {
         return Task::Idle;
     }
 
     let next = progress + 1;
     if next >= 10 {
-        world::set(map, at.x, at.y, Tile::Ground);
-        let e = world::tile_entity(&tile_entities, at.x, at.y);
-        if let Ok(mut sprite) = q_tiles.get_mut(e) {
-            sprite.color = world::tile_color(Tile::Ground);
-        }
+        world::set_with_sprite(map, &tile_entities, &mut q_tiles, at.x, at.y, Tile::Ground);
         inv.wood += 1;
         Task::GoToStockpile
     } else {
