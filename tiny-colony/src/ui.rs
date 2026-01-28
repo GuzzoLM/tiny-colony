@@ -3,17 +3,13 @@ use bevy::prelude::*;
 use crate::colony::Colony;
 use crate::pawn::{Pawn, Task};
 
-#[derive(Component)]
-pub struct WoodValueText;
-
-#[derive(Component)]
-pub struct PawnAction;
-
-#[derive(Component)]
-pub struct PawnPosition;
-
-#[derive(Component)]
-pub struct PawnId;
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UiTextTag {
+    WoodValue,
+    PawnAction,
+    PawnPosition,
+    PawnId,
+}
 
 pub fn spawn_ui(commands: &mut Commands) {
     spawn_colony_ui(commands);
@@ -58,7 +54,7 @@ pub fn spawn_colony_ui(commands: &mut Commands) {
                 ..default()
             },
             TextColor(Color::srgb(0.9, 0.8, 0.6)),
-            WoodValueText,
+            UiTextTag::WoodValue,
         ));
     });
 }
@@ -116,7 +112,7 @@ pub fn spawn_pawn_ui(commands: &mut Commands) {
                 ..default()
             },
             TextColor(Color::srgb(0.7, 0.85, 1.0)),
-            PawnId,
+            UiTextTag::PawnId,
         ));
     });
 
@@ -142,7 +138,7 @@ pub fn spawn_pawn_ui(commands: &mut Commands) {
                 ..default()
             },
             TextColor(Color::srgb(0.7, 0.85, 1.0)),
-            PawnPosition,
+            UiTextTag::PawnPosition,
         ));
     });
 
@@ -168,31 +164,30 @@ pub fn spawn_pawn_ui(commands: &mut Commands) {
                 ..default()
             },
             TextColor(Color::srgb(0.7, 0.85, 1.0)),
-            PawnAction,
+            UiTextTag::PawnAction,
         ));
     });
 }
 
 pub fn update_wood_ui(
     colony: Res<Colony>,
-    mut q: Query<&mut TextSpan, With<WoodValueText>>,
+    mut q: Query<(&UiTextTag, &mut TextSpan)>,
 ) {
     if !colony.is_changed() {
         return;
     }
 
-    if let Ok(mut text) = q.single_mut() {
-        text.0 = colony.wood.to_string();
+    for (tag, mut text) in &mut q {
+        if *tag == UiTextTag::WoodValue {
+            text.0 = colony.wood.to_string();
+            break;
+        }
     }
 }
 
 pub fn update_pawn_ui(
-    q_pawns: Query<(&Pawn, &Task)>,
-    mut q_text: ParamSet<(
-        Query<&mut TextSpan, With<PawnAction>>,
-        Query<&mut TextSpan, With<PawnPosition>>,
-        Query<&mut TextSpan, With<PawnId>>,
-    )>,
+    q_pawns: Query<(&Pawn, &Task), Or<(Changed<Pawn>, Changed<Task>)>>,
+    mut q_text: Query<(&UiTextTag, &mut TextSpan)>,
 ) {
     let mut action_value = None;
     let mut position_value = None;
@@ -216,16 +211,13 @@ pub fn update_pawn_ui(
         return;
     };
 
-    if let Ok(mut action_text) = q_text.p0().single_mut() {
-        action_text.0 = action_value;
-    }
-
-    if let Ok(mut position_text) = q_text.p1().single_mut() {
-        position_text.0 = position_value;
-    }
-
-    if let Ok(mut id_text) = q_text.p2().single_mut() {
-        id_text.0 = id_value;
+    for (tag, mut text) in &mut q_text {
+        match *tag {
+            UiTextTag::PawnAction => text.0 = action_value.clone(),
+            UiTextTag::PawnPosition => text.0 = position_value.clone(),
+            UiTextTag::PawnId => text.0 = id_value.clone(),
+            UiTextTag::WoodValue => {}
+        }
     }
 }
 
