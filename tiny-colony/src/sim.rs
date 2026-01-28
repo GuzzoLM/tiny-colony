@@ -1,14 +1,15 @@
 use bevy::prelude::*;
 
-use crate::pawn::Pawn;
-use crate::world;
+use crate::colony::Colony;
+use crate::pawn::{Inventory, Pawn, Task};
+use crate::pawn_tasks;
+use crate::world::{self, WorldMap};
 
 #[derive(Resource)]
 pub struct Sim {
     pub paused: bool,
     pub speed: f32,
     pub tick: Timer,
-    pub target: IVec2,
 }
 
 pub fn init(commands: &mut Commands) {
@@ -16,8 +17,9 @@ pub fn init(commands: &mut Commands) {
         paused: false,
         speed: 1.0,
         tick: Timer::from_seconds(0.10, TimerMode::Repeating), // 10 Hz
-        target: IVec2::new(12, 12),
     });
+
+    commands.insert_resource(Colony::default());
 }
 
 pub fn sim_controls(keys: Res<ButtonInput<KeyCode>>, mut sim: ResMut<Sim>) {
@@ -34,7 +36,15 @@ pub fn sim_controls(keys: Res<ButtonInput<KeyCode>>, mut sim: ResMut<Sim>) {
     }
 }
 
-pub fn move_pawn_0(time: Res<Time>, mut sim: ResMut<Sim>, mut q: Query<(&mut Pawn, &mut Transform)>) {
+pub fn tick_jobs(
+    time: Res<Time>,
+    mut sim: ResMut<Sim>,
+    mut map: ResMut<WorldMap>,
+    mut stockpile: ResMut<Colony>,
+    mut q: Query<(&mut Pawn, &mut Transform, &mut Task, &mut Inventory)>,
+    tile_entities: Res<world::TileEntities>,
+    q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
+) {
     if sim.paused {
         return;
     }
@@ -45,34 +55,24 @@ pub fn move_pawn_0(time: Res<Time>, mut sim: ResMut<Sim>, mut q: Query<(&mut Paw
         return;
     }
 
-    for (mut pawn, mut transform) in &mut q {
+    for (mut pawn, mut transform, mut task, mut inv) in &mut q {
         if pawn.id != 0 {
             continue;
         }
 
-        let px = pawn.x;
-        let py = pawn.y;
+        let next = match *task {
+            Task::Idle => pawn_tasks::handle_idle(&pawn, &map),
+            Task::GoToTree(target) => {
+                pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, target)
+            }
+            Task::Chop { at, progress } => {
+                pawn_tasks::handle_chop(&mut map, &mut inv, at, progress, tile_entities, q_tiles)
+            }
+            Task::GoToStockpile => pawn_tasks::handle_go_to_stockpile(&mut pawn, &mut transform),
+            Task::DropOff => pawn_tasks::handle_drop_off(&mut inv, &mut stockpile),
+        };
 
-        let tx = sim.target.x;
-        let ty = sim.target.y;
-
-        if px == tx && py == ty {
-            break;
-        }
-
-        if px < tx {
-            pawn.x += 1;
-        } else if px > tx {
-            pawn.x -= 1;
-        } else if py < ty {
-            pawn.y += 1;
-        } else if py > ty {
-            pawn.y -= 1;
-        }
-
-        let pos = world::grid_to_world(pawn.x, pawn.y);
-        transform.translation = pos + Vec3::new(0.0, 0.0, 1.0);
-
+        *task = next;
         break;
     }
 }

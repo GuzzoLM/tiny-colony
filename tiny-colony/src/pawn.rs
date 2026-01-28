@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use bevy::asset::RenderAssetUsages;
+use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::config::*;
@@ -12,13 +12,34 @@ pub struct Pawn {
     pub y: i32,
 }
 
+#[derive(Component, Debug, Clone, Copy)]
+pub enum Task {
+    Idle,
+    GoToTree(IVec2),
+    Chop { at: IVec2, progress: u8 },
+    GoToStockpile,
+    DropOff,
+}
+
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct Inventory {
+    pub wood: u32,
+}
+
 pub fn spawn_pawns(commands: &mut Commands, images: &mut ResMut<Assets<Image>>) {
     let circle_image = images.add(make_circle_image(PAWN_RADIUS_PX));
 
     let spawn_offsets: [(i32, i32); PAWN_COUNT] = [
-        (1, 0), (-1, 0), (0, 1), (0, -1),
-        (1, 1), (-1, 1), (1, -1), (-1, -1),
-        (2, 0), (-2, 0),
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
+        (1, 1),
+        (-1, 1),
+        (1, -1),
+        (-1, -1),
+        (2, 0),
+        (-2, 0),
     ];
 
     for (i, (dx, dy)) in spawn_offsets.into_iter().enumerate() {
@@ -28,16 +49,19 @@ pub fn spawn_pawns(commands: &mut Commands, images: &mut ResMut<Assets<Image>>) 
         let pos = world::grid_to_world(x, y);
         let transform = Transform::from_translation(pos + Vec3::new(0.0, 0.0, 1.0));
 
-        commands.spawn((
-            Pawn { id: i as u32, x, y },
-            Sprite {
-                image: circle_image.clone(),
-                color: Color::srgb(0.85, 0.85, 0.95),
-                custom_size: Some(Vec2::splat(TILE_SIZE - 2.0)),
-                ..default()
-            },
-            transform,
-        ));
+        commands
+            .spawn((
+                Pawn { id: i as u32, x, y },
+                Sprite {
+                    image: circle_image.clone(),
+                    color: Color::srgb(0.85, 0.85, 0.95),
+                    custom_size: Some(Vec2::splat(TILE_SIZE - 2.0)),
+                    ..default()
+                },
+                transform,
+            ))
+            .insert(Task::Idle)
+            .insert(Inventory::default());
     }
 
     crate::sim::init(commands);
