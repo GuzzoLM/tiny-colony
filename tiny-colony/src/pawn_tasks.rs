@@ -13,15 +13,15 @@ pub fn handle_idle(pawn: &Pawn, map: &WorldMap) -> Task {
     }
 }
 
-pub fn handle_go_to_tree(pawn: &mut Pawn, transform: &mut Transform, target: IVec2) -> Task {
-    let arrived = move_and_update(pawn, transform, target);
+pub fn handle_go_to_tree(pawn: &mut Pawn, transform: &mut Transform, at: IVec2) -> Task {
+    let arrived = move_and_update(pawn, transform, at);
     if arrived {
         Task::Chop {
-            at: target,
+            at: at,
             progress: 0,
         }
     } else {
-        Task::GoToTree(target)
+        Task::GoToTree(at)
     }
 }
 
@@ -30,8 +30,8 @@ pub fn handle_chop(
     inv: &mut Inventory,
     at: IVec2,
     progress: u8,
-    tile_entities: Res<world::TileEntities>,
-    mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
+    tile_entities: &mut Res<world::TileEntities>,
+    q_tiles: &mut Query<&mut Sprite, With<world::TileSprite>>,
 ) -> Task {
     if world::get(map, at.x, at.y) != Tile::Tree {
         return Task::Idle;
@@ -39,7 +39,7 @@ pub fn handle_chop(
 
     let next = progress + 1;
     if next >= 10 {
-        world::set_with_sprite(map, &tile_entities, &mut q_tiles, at.x, at.y, Tile::Ground);
+        world::set_with_sprite(map, &tile_entities, q_tiles, at.x, at.y, Tile::Ground);
         inv.wood += 1;
         Task::GoToStockpile
     } else {

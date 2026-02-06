@@ -42,8 +42,8 @@ pub fn tick_jobs(
     mut map: ResMut<WorldMap>,
     mut stockpile: ResMut<Colony>,
     mut q: Query<(&mut Pawn, &mut Transform, &mut Task, &mut Inventory)>,
-    tile_entities: Res<world::TileEntities>,
-    q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
+    mut tile_entities: Res<world::TileEntities>,
+    mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
 ) {
     if sim.paused {
         return;
@@ -56,23 +56,18 @@ pub fn tick_jobs(
     }
 
     for (mut pawn, mut transform, mut task, mut inv) in &mut q {
-        if pawn.id != 0 {
-            continue;
-        }
-
         let next = match *task {
             Task::Idle => pawn_tasks::handle_idle(&pawn, &map),
-            Task::GoToTree(target) => {
-                pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, target)
+            Task::GoToTree(at) => {
+                pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, at)
             }
             Task::Chop { at, progress } => {
-                pawn_tasks::handle_chop(&mut map, &mut inv, at, progress, tile_entities, q_tiles)
+                pawn_tasks::handle_chop(&mut map, &mut inv, at, progress, &mut tile_entities, &mut q_tiles)
             }
             Task::GoToStockpile => pawn_tasks::handle_go_to_stockpile(&mut pawn, &mut transform),
             Task::DropOff => pawn_tasks::handle_drop_off(&mut inv, &mut stockpile),
         };
 
         *task = next;
-        break;
     }
 }
