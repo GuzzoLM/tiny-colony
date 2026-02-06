@@ -17,6 +17,8 @@ fn main() {
             (
                 sim::sim_controls,
                 sim::tick_jobs,
+                ui::select_pawn_on_click,
+                ui::update_selected_pawn_visuals,
                 ui::update_wood_ui,
                 ui::update_pawn_ui,
             ),
