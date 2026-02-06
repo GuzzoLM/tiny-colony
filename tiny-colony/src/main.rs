@@ -32,8 +32,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     ui::spawn_ui(&mut commands);
 
     let world = world::build_world();
+    pawn::spawn_pawns(&mut commands, &mut images, &world);
     world::spawn_world_tiles(&mut commands, &world);
     commands.insert_resource(world);
-
-    pawn::spawn_pawns(&mut commands, &mut images);
 }

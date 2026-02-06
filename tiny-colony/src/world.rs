@@ -26,8 +26,20 @@ pub fn build_world() -> WorldMap {
     let tiles = vec![Tile::Ground; (MAP_W * MAP_H) as usize];
     let mut world = WorldMap { tiles };
 
-    for y in 10..18 {
-        for x in 10..18 {
+    for y in 0..48 {
+        for x in 0..18 {
+            set(&mut world, x, y, Tile::Tree);
+        }
+    }
+
+    for y in 0..18 {
+        for x in 0..58 {
+            set(&mut world, x, y, Tile::Tree);
+        }
+    }
+
+    for y in 46..64 {
+        for x in 0..58 {
             set(&mut world, x, y, Tile::Tree);
         }
     }
