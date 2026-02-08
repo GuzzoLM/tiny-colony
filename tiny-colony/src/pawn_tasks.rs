@@ -3,44 +3,64 @@ use bevy::prelude::*;
 use crate::colony::Colony;
 use crate::config::*;
 use crate::pawn::{Inventory, Pawn, Task};
-use crate::world::{self, Tile, WorldMap};
+use crate::sim::Reservations;
+use crate::world::{self, Tile, WorldMap, WorldTrees};
 
-pub fn handle_idle(pawn: &Pawn, map: &WorldMap) -> Task {
-    if let Some(tree) = find_nearest_tree(map, IVec2::new(pawn.x, pawn.y)) {
+pub fn handle_idle(
+    pawn_entity: Entity,
+    pawn: &Pawn,
+    map: &WorldMap,
+    reservations: &mut Reservations,
+    world_trees: &WorldTrees,
+) -> Task {
+    if let Some(tree) =
+        find_nearest_tree(map, IVec2::new(pawn.x, pawn.y), reservations, world_trees)
+    {
+        reservations.reserved_tiles.insert(tree, pawn_entity);
         Task::GoToTree(tree)
     } else {
         Task::Idle
     }
 }
 
-pub fn handle_go_to_tree(pawn: &mut Pawn, transform: &mut Transform, target: IVec2) -> Task {
-    let arrived = move_and_update(pawn, transform, target);
+pub fn handle_go_to_tree(pawn: &mut Pawn, transform: &mut Transform, at: IVec2) -> Task {
+    let arrived = move_and_update(pawn, transform, at);
     if arrived {
         Task::Chop {
-            at: target,
+            at: at,
             progress: 0,
         }
     } else {
-        Task::GoToTree(target)
+        Task::GoToTree(at)
     }
 }
 
 pub fn handle_chop(
+    pawn_entity: Entity,
     map: &mut WorldMap,
     inv: &mut Inventory,
     at: IVec2,
     progress: u8,
-    tile_entities: Res<world::TileEntities>,
-    mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
+    reservations: &mut Reservations,
+    world_trees: &mut WorldTrees,
+    tile_entities: &mut Res<world::TileEntities>,
+    q_tiles: &mut Query<&mut Sprite, With<world::TileSprite>>,
 ) -> Task {
     if world::get(map, at.x, at.y) != Tile::Tree {
+        if reservations.reserved_tiles.get(&at) == Some(&pawn_entity) {
+            reservations.reserved_tiles.remove(&at);
+        }
         return Task::Idle;
     }
 
     let next = progress + 1;
     if next >= 10 {
-        world::set_with_sprite(map, &tile_entities, &mut q_tiles, at.x, at.y, Tile::Ground);
+        world::set_with_sprite(map, &tile_entities, q_tiles, at.x, at.y, Tile::Ground);
         inv.wood += 1;
+        world_trees.0.remove(&at);
+        if reservations.reserved_tiles.get(&at) == Some(&pawn_entity) {
+            reservations.reserved_tiles.remove(&at);
+        }
         Task::GoToStockpile
     } else {
         Task::Chop { at, progress: next }
@@ -88,20 +108,23 @@ fn step_towards(pawn: &mut Pawn, target: IVec2) {
     }
 }
 
-fn find_nearest_tree(map: &WorldMap, from: IVec2) -> Option<IVec2> {
+fn find_nearest_tree(
+    map: &WorldMap,
+    from: IVec2,
+    reservations: &Reservations,
+    world_trees: &WorldTrees,
+) -> Option<IVec2> {
     let mut best: Option<(i32, IVec2)> = None;
 
-    for y in 0..MAP_H {
-        for x in 0..MAP_W {
-            if world::get(map, x, y) == Tile::Tree {
-                let dist = (from.x - x).abs() + (from.y - y).abs();
-                let pos = IVec2::new(x, y);
+    for &target in world_trees.0.iter() {
+        let reserved = reservations.reserved_tiles.contains_key(&target);
+        if !reserved && world::get(map, target.x, target.y) == Tile::Tree {
+            let dist = (from.x - target.x).abs() + (from.y - target.y).abs();
 
-                match best {
-                    None => best = Some((dist, pos)),
-                    Some((best_dist, _)) if dist < best_dist => best = Some((dist, pos)),
-                    _ => {}
-                }
+            match best {
+                None => best = Some((dist, target)),
+                Some((best_dist, _)) if dist < best_dist => best = Some((dist, target)),
+                _ => {}
             }
         }
     }

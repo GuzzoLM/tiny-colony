@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{platform::collections::HashSet, prelude::*};
 
 use crate::config::*;
 
@@ -18,6 +18,9 @@ pub struct TileEntities {
 }
 
 #[derive(Resource)]
+pub struct WorldTrees(pub HashSet<IVec2>);
+
+#[derive(Resource)]
 pub struct WorldMap {
     pub tiles: Vec<Tile>,
 }
@@ -26,8 +29,20 @@ pub fn build_world() -> WorldMap {
     let tiles = vec![Tile::Ground; (MAP_W * MAP_H) as usize];
     let mut world = WorldMap { tiles };
 
-    for y in 10..18 {
-        for x in 10..18 {
+    for y in 0..48 {
+        for x in 0..18 {
+            set(&mut world, x, y, Tile::Tree);
+        }
+    }
+
+    for y in 0..18 {
+        for x in 0..58 {
+            set(&mut world, x, y, Tile::Tree);
+        }
+    }
+
+    for y in 46..64 {
+        for x in 0..58 {
             set(&mut world, x, y, Tile::Tree);
         }
     }
@@ -39,10 +54,14 @@ pub fn build_world() -> WorldMap {
 
 pub fn spawn_world_tiles(commands: &mut Commands, world: &WorldMap) {
     let mut tile_entities = Vec::with_capacity((MAP_W * MAP_H) as usize);
+    let mut world_trees = HashSet::with_capacity((MAP_W * MAP_H) as usize);
 
     for y in 0..MAP_H {
         for x in 0..MAP_W {
             let tile = get(world, x, y);
+            if tile == Tile::Tree {
+                world_trees.insert(IVec2::new(x, y));
+            }
 
             let color = tile_color(tile);
 
@@ -67,6 +86,8 @@ pub fn spawn_world_tiles(commands: &mut Commands, world: &WorldMap) {
     commands.insert_resource(TileEntities {
         entities: tile_entities,
     });
+
+    commands.insert_resource(WorldTrees(world_trees));
 }
 
 pub fn grid_to_world(x: i32, y: i32) -> Vec3 {

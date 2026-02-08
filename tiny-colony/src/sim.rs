@@ -1,3 +1,4 @@
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::colony::Colony;
@@ -12,6 +13,11 @@ pub struct Sim {
     pub tick: Timer,
 }
 
+#[derive(Resource)]
+pub struct Reservations {
+    pub reserved_tiles: HashMap<IVec2, Entity>
+}
+
 pub fn init(commands: &mut Commands) {
     commands.insert_resource(Sim {
         paused: false,
@@ -20,6 +26,9 @@ pub fn init(commands: &mut Commands) {
     });
 
     commands.insert_resource(Colony::default());
+    commands.insert_resource(Reservations {
+        reserved_tiles: HashMap::new(),
+    });
 }
 
 pub fn sim_controls(keys: Res<ButtonInput<KeyCode>>, mut sim: ResMut<Sim>) {
@@ -41,9 +50,11 @@ pub fn tick_jobs(
     mut sim: ResMut<Sim>,
     mut map: ResMut<WorldMap>,
     mut stockpile: ResMut<Colony>,
-    mut q: Query<(&mut Pawn, &mut Transform, &mut Task, &mut Inventory)>,
-    tile_entities: Res<world::TileEntities>,
-    q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
+    mut q: Query<(Entity, &mut Pawn, &mut Transform, &mut Task, &mut Inventory)>,
+    mut tile_entities: Res<world::TileEntities>,
+    mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
+    mut reservations: ResMut<Reservations>,
+    mut world_trees: ResMut<world::WorldTrees>,
 ) {
     if sim.paused {
         return;
@@ -55,24 +66,31 @@ pub fn tick_jobs(
         return;
     }
 
-    for (mut pawn, mut transform, mut task, mut inv) in &mut q {
-        if pawn.id != 0 {
-            continue;
-        }
-
+    for (entity, mut pawn, mut transform, mut task, mut inv) in &mut q {
         let next = match *task {
-            Task::Idle => pawn_tasks::handle_idle(&pawn, &map),
-            Task::GoToTree(target) => {
-                pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, target)
+            Task::Idle => {
+                pawn_tasks::handle_idle(entity, &pawn, &map, &mut reservations, &world_trees)
+            }
+            Task::GoToTree(at) => {
+                pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, at)
             }
             Task::Chop { at, progress } => {
-                pawn_tasks::handle_chop(&mut map, &mut inv, at, progress, tile_entities, q_tiles)
+                pawn_tasks::handle_chop(
+                    entity,
+                    &mut map,
+                    &mut inv,
+                    at,
+                    progress,
+                    &mut reservations,
+                    &mut world_trees,
+                    &mut tile_entities,
+                    &mut q_tiles,
+                )
             }
             Task::GoToStockpile => pawn_tasks::handle_go_to_stockpile(&mut pawn, &mut transform),
             Task::DropOff => pawn_tasks::handle_drop_off(&mut inv, &mut stockpile),
         };
 
         *task = next;
-        break;
     }
 }
