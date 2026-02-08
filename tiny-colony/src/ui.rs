@@ -5,10 +5,12 @@ use bevy::window::PrimaryWindow;
 use crate::colony::Colony;
 use crate::config::TILE_SIZE;
 use crate::pawn::{Pawn, Task};
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiTextTag {
     WoodValue,
+    FpsValue,
     PawnAction,
     PawnPosition,
     PawnId,
@@ -66,6 +68,33 @@ pub fn spawn_colony_ui(commands: &mut Commands) {
                 },
                 TextColor(Color::srgb(0.9, 0.8, 0.6)),
                 UiTextTag::WoodValue,
+            ));
+        });
+
+    commands
+        .spawn((
+            Text::new("FPS: "),
+            TextFont {
+                font_size: 20.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(56.0),
+                left: Val::Px(16.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextSpan::new("--"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.95, 0.7)),
+                UiTextTag::FpsValue,
             ));
         });
 }
@@ -196,6 +225,27 @@ pub fn update_wood_ui(colony: Res<Colony>, mut q: Query<(&UiTextTag, &mut TextSp
     }
 }
 
+pub fn update_fps_ui(
+    diagnostics: Res<DiagnosticsStore>,
+    mut q: Query<(&UiTextTag, &mut TextSpan)>,
+) {
+    let fps = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|d| d.smoothed());
+
+    let fps_value = match fps {
+        Some(value) => format!("{value:.1}"),
+        None => "--".to_string(),
+    };
+
+    for (tag, mut text) in &mut q {
+        if *tag == UiTextTag::FpsValue {
+            text.0 = fps_value.clone();
+            break;
+        }
+    }
+}
+
 pub fn update_pawn_ui(
     selected: Res<SelectedPawn>,
     q_pawns: Query<(&Pawn, &Task)>,
@@ -218,7 +268,8 @@ pub fn update_pawn_ui(
             UiTextTag::PawnAction => text.0 = action_value.clone(),
             UiTextTag::PawnPosition => text.0 = position_value.clone(),
             UiTextTag::PawnId => text.0 = id_value.clone(),
-            UiTextTag::WoodValue => {}
+            UiTextTag::WoodValue => {},
+            UiTextTag::FpsValue => {},
         }
     }
 }

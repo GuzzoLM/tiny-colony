@@ -7,10 +7,12 @@ mod ui;
 mod world;
 
 use bevy::prelude::*;
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -20,6 +22,7 @@ fn main() {
                 ui::select_pawn_on_click,
                 ui::update_selected_pawn_visuals,
                 ui::update_wood_ui,
+                ui::update_fps_ui,
                 ui::update_pawn_ui,
             ),
         )
