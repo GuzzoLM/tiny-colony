@@ -4,15 +4,18 @@ use crate::colony::Colony;
 use crate::config::*;
 use crate::pawn::{Inventory, Pawn, Task};
 use crate::sim::Reservations;
-use crate::world::{self, Tile, WorldMap};
+use crate::world::{self, Tile, WorldMap, WorldTrees};
 
 pub fn handle_idle(
     pawn_entity: Entity,
     pawn: &Pawn,
     map: &WorldMap,
     reservations: &mut Reservations,
+    world_trees: &WorldTrees,
 ) -> Task {
-    if let Some(tree) = find_nearest_tree(map, IVec2::new(pawn.x, pawn.y), reservations) {
+    if let Some(tree) =
+        find_nearest_tree(map, IVec2::new(pawn.x, pawn.y), reservations, world_trees)
+    {
         reservations.reserved_tiles.insert(tree, pawn_entity);
         Task::GoToTree(tree)
     } else {
@@ -39,6 +42,7 @@ pub fn handle_chop(
     at: IVec2,
     progress: u8,
     reservations: &mut Reservations,
+    world_trees: &mut WorldTrees,
     tile_entities: &mut Res<world::TileEntities>,
     q_tiles: &mut Query<&mut Sprite, With<world::TileSprite>>,
 ) -> Task {
@@ -53,6 +57,7 @@ pub fn handle_chop(
     if next >= 10 {
         world::set_with_sprite(map, &tile_entities, q_tiles, at.x, at.y, Tile::Ground);
         inv.wood += 1;
+        world_trees.0.remove(&at);
         if reservations.reserved_tiles.get(&at) == Some(&pawn_entity) {
             reservations.reserved_tiles.remove(&at);
         }
@@ -107,22 +112,19 @@ fn find_nearest_tree(
     map: &WorldMap,
     from: IVec2,
     reservations: &Reservations,
+    world_trees: &WorldTrees,
 ) -> Option<IVec2> {
     let mut best: Option<(i32, IVec2)> = None;
 
-    for y in 0..MAP_H {
-        for x in 0..MAP_W {
-            let target = IVec2::new(x, y);
-            let reserved = reservations.reserved_tiles.contains_key(&target);
-            if world::get(map, x, y) == Tile::Tree && !reserved {
-                let dist = (from.x - x).abs() + (from.y - y).abs();
-                let pos = IVec2::new(x, y);
+    for &target in world_trees.0.iter() {
+        let reserved = reservations.reserved_tiles.contains_key(&target);
+        if !reserved && world::get(map, target.x, target.y) == Tile::Tree {
+            let dist = (from.x - target.x).abs() + (from.y - target.y).abs();
 
-                match best {
-                    None => best = Some((dist, pos)),
-                    Some((best_dist, _)) if dist < best_dist => best = Some((dist, pos)),
-                    _ => {}
-                }
+            match best {
+                None => best = Some((dist, target)),
+                Some((best_dist, _)) if dist < best_dist => best = Some((dist, target)),
+                _ => {}
             }
         }
     }

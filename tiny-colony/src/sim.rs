@@ -54,6 +54,7 @@ pub fn tick_jobs(
     mut tile_entities: Res<world::TileEntities>,
     mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
     mut reservations: ResMut<Reservations>,
+    mut world_trees: ResMut<world::WorldTrees>,
 ) {
     if sim.paused {
         return;
@@ -67,7 +68,9 @@ pub fn tick_jobs(
 
     for (entity, mut pawn, mut transform, mut task, mut inv) in &mut q {
         let next = match *task {
-            Task::Idle => pawn_tasks::handle_idle(entity, &pawn, &map, &mut reservations),
+            Task::Idle => {
+                pawn_tasks::handle_idle(entity, &pawn, &map, &mut reservations, &world_trees)
+            }
             Task::GoToTree(at) => {
                 pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, at)
             }
@@ -79,6 +82,7 @@ pub fn tick_jobs(
                     at,
                     progress,
                     &mut reservations,
+                    &mut world_trees,
                     &mut tile_entities,
                     &mut q_tiles,
                 )
