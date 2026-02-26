@@ -2,6 +2,7 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::colony::Colony;
+use crate::movement::{Movement, OccupancyGrid};
 use crate::pawn::{Inventory, Pawn, Task};
 use crate::pawn_tasks;
 use crate::world::{self, WorldMap};
@@ -15,7 +16,7 @@ pub struct Sim {
 
 #[derive(Resource)]
 pub struct Reservations {
-    pub reserved_tiles: HashMap<IVec2, Entity>
+    pub reserved_tiles: HashMap<IVec2, Entity>,
 }
 
 pub fn init(commands: &mut Commands) {
@@ -50,11 +51,19 @@ pub fn tick_jobs(
     mut sim: ResMut<Sim>,
     mut map: ResMut<WorldMap>,
     mut stockpile: ResMut<Colony>,
-    mut q: Query<(Entity, &mut Pawn, &mut Transform, &mut Task, &mut Inventory)>,
+    mut q: Query<(
+        Entity,
+        &mut Pawn,
+        &mut Transform,
+        &mut Task,
+        &mut Inventory,
+        &mut Movement,
+    )>,
     mut tile_entities: Res<world::TileEntities>,
     mut q_tiles: Query<&mut Sprite, With<world::TileSprite>>,
     mut reservations: ResMut<Reservations>,
     mut world_trees: ResMut<world::WorldTrees>,
+    mut occupancy: ResMut<OccupancyGrid>,
 ) {
     if sim.paused {
         return;
@@ -66,13 +75,22 @@ pub fn tick_jobs(
         return;
     }
 
-    for (entity, mut pawn, mut transform, mut task, mut inv) in &mut q {
+    for (entity, mut pawn, mut transform, mut task, mut inv, mut movement) in &mut q {
         let next = match *task {
             Task::Idle => {
                 pawn_tasks::handle_idle(entity, &pawn, &map, &mut reservations, &world_trees)
             }
             Task::GoToTree(at) => {
-                pawn_tasks::handle_go_to_tree(&mut pawn, &mut transform, at)
+                pawn_tasks::handle_go_to_tree(
+                    entity,
+                    &mut pawn,
+                    &mut movement,
+                    &mut transform,
+                    &map,
+                    &mut occupancy,
+                    &mut reservations,
+                    at,
+                )
             }
             Task::Chop { at, progress } => {
                 pawn_tasks::handle_chop(
@@ -87,7 +105,14 @@ pub fn tick_jobs(
                     &mut q_tiles,
                 )
             }
-            Task::GoToStockpile => pawn_tasks::handle_go_to_stockpile(&mut pawn, &mut transform),
+            Task::GoToStockpile => pawn_tasks::handle_go_to_stockpile(
+                entity,
+                &mut pawn,
+                &mut movement,
+                &mut transform,
+                &map,
+                &mut occupancy,
+            ),
             Task::DropOff => pawn_tasks::handle_drop_off(&mut inv, &mut stockpile),
         };
 

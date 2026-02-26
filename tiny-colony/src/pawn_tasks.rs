@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::colony::Colony;
 use crate::config::*;
+use crate::movement::{move_towards_target, MoveOutcome, Movement, OccupancyGrid};
 use crate::pawn::{Inventory, Pawn, Task};
 use crate::sim::Reservations;
 use crate::world::{self, Tile, WorldMap, WorldTrees};
@@ -23,15 +24,42 @@ pub fn handle_idle(
     }
 }
 
-pub fn handle_go_to_tree(pawn: &mut Pawn, transform: &mut Transform, at: IVec2) -> Task {
-    let arrived = move_and_update(pawn, transform, at);
-    if arrived {
-        Task::Chop {
-            at: at,
-            progress: 0,
+pub fn handle_go_to_tree(
+    pawn_entity: Entity,
+    pawn: &mut Pawn,
+    movement: &mut Movement,
+    transform: &mut Transform,
+    map: &WorldMap,
+    occupancy: &mut OccupancyGrid,
+    reservations: &mut Reservations,
+    at: IVec2,
+) -> Task {
+    if world::get(map, at.x, at.y) != Tile::Tree {
+        if reservations.reserved_tiles.get(&at) == Some(&pawn_entity) {
+            reservations.reserved_tiles.remove(&at);
         }
-    } else {
-        Task::GoToTree(at)
+        movement.clear_path();
+        return Task::Idle;
+    }
+
+    match move_towards_target(
+        pawn_entity,
+        pawn,
+        movement,
+        transform,
+        at,
+        map,
+        occupancy,
+    ) {
+        MoveOutcome::Arrived => Task::Chop { at, progress: 0 },
+        MoveOutcome::Stuck => {
+            movement.clear_path();
+            if reservations.reserved_tiles.get(&at) == Some(&pawn_entity) {
+                reservations.reserved_tiles.remove(&at);
+            }
+            Task::Idle
+        }
+        _ => Task::GoToTree(at),
     }
 }
 
@@ -67,13 +95,30 @@ pub fn handle_chop(
     }
 }
 
-pub fn handle_go_to_stockpile(pawn: &mut Pawn, transform: &mut Transform) -> Task {
+pub fn handle_go_to_stockpile(
+    pawn_entity: Entity,
+    pawn: &mut Pawn,
+    movement: &mut Movement,
+    transform: &mut Transform,
+    map: &WorldMap,
+    occupancy: &mut OccupancyGrid,
+) -> Task {
     let target = IVec2::new(STOCKPILE_X, STOCKPILE_Y);
-    let arrived = move_and_update(pawn, transform, target);
-    if arrived {
-        Task::DropOff
-    } else {
-        Task::GoToStockpile
+    match move_towards_target(
+        pawn_entity,
+        pawn,
+        movement,
+        transform,
+        target,
+        map,
+        occupancy,
+    ) {
+        MoveOutcome::Arrived => Task::DropOff,
+        MoveOutcome::Stuck => {
+            movement.clear_path();
+            Task::Idle
+        }
+        _ => Task::GoToStockpile,
     }
 }
 
@@ -83,29 +128,6 @@ pub fn handle_drop_off(inv: &mut Inventory, stockpile: &mut Colony) -> Task {
         inv.wood = 0;
     }
     Task::Idle
-}
-
-fn move_and_update(pawn: &mut Pawn, transform: &mut Transform, target: IVec2) -> bool {
-    step_towards(pawn, target);
-    update_transform(transform, pawn);
-    pawn.x == target.x && pawn.y == target.y
-}
-
-fn update_transform(transform: &mut Transform, pawn: &Pawn) {
-    let pos = world::grid_to_world(pawn.x, pawn.y);
-    transform.translation = pos + Vec3::new(0.0, 0.0, 1.0);
-}
-
-fn step_towards(pawn: &mut Pawn, target: IVec2) {
-    if pawn.x < target.x {
-        pawn.x += 1;
-    } else if pawn.x > target.x {
-        pawn.x -= 1;
-    } else if pawn.y < target.y {
-        pawn.y += 1;
-    } else if pawn.y > target.y {
-        pawn.y -= 1;
-    }
 }
 
 fn find_nearest_tree(

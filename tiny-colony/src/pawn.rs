@@ -1,9 +1,9 @@
 use bevy::asset::RenderAssetUsages;
-use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::config::*;
+use crate::movement::{Movement, OccupancyGrid};
 use crate::world::{self, Tile, WorldMap};
 
 #[derive(Component)]
@@ -27,13 +27,17 @@ pub struct Inventory {
     pub wood: u32,
 }
 
-pub fn spawn_pawns(commands: &mut Commands, images: &mut ResMut<Assets<Image>>, map: &WorldMap) {
+pub fn spawn_pawns(
+    commands: &mut Commands,
+    images: &mut ResMut<Assets<Image>>,
+    map: &WorldMap,
+    occupancy: &mut OccupancyGrid,
+) {
     let circle_image = images.add(make_circle_image(PAWN_RADIUS_PX));
 
     let max_radius = ((PAWN_COUNT as f32).sqrt().ceil() as i32) + 5;
     let stockpile = IVec2 { x: STOCKPILE_X, y: STOCKPILE_Y };
 
-    let mut occupied: HashSet<IVec2> = HashSet::new();
     let mut spawned = 0usize;
 
     for p in spiral_positions(stockpile, max_radius) {
@@ -52,35 +56,38 @@ pub fn spawn_pawns(commands: &mut Commands, images: &mut ResMut<Assets<Image>>, 
         }
 
         // avoid stacking pawns on same tile
-        if occupied.contains(&p) {
+        if !occupancy.is_free(p) {
             continue;
         }
-        occupied.insert(p);
 
         let pos = world::grid_to_world(p.x, p.y);
         let transform = Transform::from_translation(pos + Vec3::new(0.0, 0.0, 1.0));
 
-        commands.spawn((
-            Pawn {
-                id: spawned as u32,
-                x: p.x,
-                y: p.y,
-            },
-            Sprite {
-                image: circle_image.clone(),
-                color: Color::srgb(0.85, 0.85, 0.95),
-                custom_size: Some(Vec2::splat(TILE_SIZE - 2.0)),
-                ..default()
-            },
-            transform,
-        ))
-        .insert(Task::Idle)
-        .insert(Inventory::default());
+        let entity = commands
+            .spawn((
+                Pawn {
+                    id: spawned as u32,
+                    x: p.x,
+                    y: p.y,
+                },
+                Sprite {
+                    image: circle_image.clone(),
+                    color: Color::srgb(0.85, 0.85, 0.95),
+                    custom_size: Some(Vec2::splat(TILE_SIZE - 2.0)),
+                    ..default()
+                },
+                transform,
+            ))
+            .insert(Task::Idle)
+            .insert(Inventory::default())
+            .insert(Movement::new(p))
+            .id();
+
+        occupancy.set(p, Some(entity));
 
         spawned += 1;
     }
 
-    crate::sim::init(commands);
 }
 
 fn spiral_positions(center: IVec2, max_radius: i32) -> impl Iterator<Item = IVec2> {
